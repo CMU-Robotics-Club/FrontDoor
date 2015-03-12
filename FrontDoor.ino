@@ -10,9 +10,14 @@
 byte mac[] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
 
 #define FRONT_DOOR_RFID_CHANNEL_ID 10
+#define FRONT_DOOR_OPEN_CHANNEL_ID 14
 
 #define RFID_IRQ_PIN 2
 #define RFID_DATA_PIN 5
+
+#define DOOR_INTERRUPT_PIN 3
+#define DOOR_INTERRUPT 1
+
 
 EthernetClient ethernetClient;
 
@@ -20,6 +25,8 @@ APIClient api(ethernetClient, PUBLIC_KEY, PRIVATE_KEY);
 
 PS2Keyboard rfidReader;
 String rfid;
+
+void doorChange();
 
 uint32_t swap_uint32(uint32_t val);
 
@@ -34,9 +41,16 @@ void setup() {
     return; 
   }
   
+  delay(1000);
+  
   Serial.println(F("Connected to Internet"));
 
   rfid = "";
+  
+  pinMode(DOOR_INTERRUPT_PIN, INPUT_PULLUP);
+  digitalWrite(DOOR_INTERRUPT_PIN, HIGH);
+  
+  attachInterrupt(DOOR_INTERRUPT, doorChange, CHANGE);
 }
 
 void loop() {  
@@ -57,7 +71,7 @@ void loop() {
 
     String rfidHex = String(rfidValue, HEX);
     
-    if(rfidHex.length() == 7) {
+    while(rfidHex.length() < 8) {
       rfidHex = "0" + rfidHex; 
     }
     
@@ -95,6 +109,17 @@ void loop() {
     while(rfidReader.available()) {
       rfidReader.read(); 
     }
+  }
+}
+
+void doorChange() {
+  boolean doorOpen = digitalRead(DOOR_INTERRUPT_PIN);
+  Serial.println(doorOpen); 
+  
+  if(!api.channelWriteValue(FRONT_DOOR_OPEN_CHANNEL_ID, String(doorOpen))) {
+    Serial.println("Channel Write Failed"); 
+  } else {
+    Serial.println("Channel Write Success"); 
   }
 }
 
